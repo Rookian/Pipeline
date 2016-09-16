@@ -1,4 +1,9 @@
-﻿namespace Pipeline
+﻿using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
+using Xunit;
+
+namespace Pipeline
 {
     public interface IFunction<in TIn, out TOut>
     {
@@ -36,12 +41,58 @@
         }
     }
 
+    public class Deco<TIn, TOut> : IFunction<TIn, TOut>
+    {
+        private readonly IFunction<TIn, TOut> _inner;
+
+        public Deco(IFunction<TIn, TOut> inner)
+        {
+            _inner = inner;
+        }
+        public TOut Process(TIn @in)
+        {
+            //
+            var process = _inner.Process(@in);
+            //
+            return process;
+        }
+    }
+
+    public class PipeLine
+    {
+        readonly List<object> _list = new List<object>();
+
+        public object Run(object obj)
+        {
+            var lastObj = obj;
+            foreach (var function in _list)
+            {
+                var methodInfo = function.GetType().GetMethod(nameof(IFunction<string, object>.Process));
+                var invoke = methodInfo.Invoke(function, BindingFlags.Default, null, new[] { lastObj }, CultureInfo.CurrentCulture);
+                lastObj = invoke;
+            }
+
+            return lastObj;
+        }
+
+        public void Add<TIn, TOut>(IFunction<TIn, TOut> function)
+        {
+            _list.Add(function);
+        }
+    }
     public class Class1
     {
+        [Fact]
         public void Do()
         {
             var readData = new ReadData();
             var mapData = new MapData();
+
+            var pipeLine = new PipeLine();
+            pipeLine.Add(readData);
+            pipeLine.Add(mapData);
+
+            var run = pipeLine.Run(new Nothing());
 
             readData.Process(new Nothing());
         }
